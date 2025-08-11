@@ -1,40 +1,48 @@
-import React, { useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { CoinContext } from '../../context/CoinContext'
 import './Coin.css'
 
 const Coin = () => {
   const { coinId } = useParams()
+  const { currency } = useContext(CoinContext)
+
   const [coinData, setCoinData] = useState(null)
+  const [historicalData, setHistoricalData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [historicalData, setHistoricalData] = useState(null)  
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let isCancelled = false
-    const controller = new AbortController()
-
     setIsLoading(true)
     setError(null)
 
-    const options = {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        'x-cg-demo-api-key': 'CG-Hqwv3QX7Cx4ZE3bobtc6BsNN'
-      },
-      signal: controller.signal
+    const API_BASE = import.meta.env.VITE_CG_BASE_URL || 'https://api.coingecko.com/api/v3'
+    const headers = { accept: 'application/json' }
+    if (import.meta.env.VITE_CG_DEMO_API_KEY) {
+      headers['x-cg-demo-api-key'] = import.meta.env.VITE_CG_DEMO_API_KEY
     }
 
-    fetch(`https://api.coingecko.com/api/v3/coins/${coinId}`, options)
-      .then(res => {
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-        return res.json()
+    const options = { method: 'GET', headers }
+
+    Promise.all([
+      fetch(`${API_BASE}/coins/${coinId}`, options).then(r => {
+        if (!r.ok) throw new Error(`Coin request failed: ${r.status}`)
+        return r.json()
+      }),
+      fetch(`${API_BASE}/coins/${coinId}/market_chart?vs_currency=${currency.name}&days=30`, options).then(r => {
+        if (!r.ok) throw new Error(`Chart request failed: ${r.status}`)
+        return r.json()
       })
-      .then(data => {
-        if (!isCancelled) setCoinData(data)
+    ])
+      .then(([coin, chart]) => {
+        if (!isCancelled) {
+          setCoinData(coin)
+          setHistoricalData(chart)
+        }
       })
       .catch(err => {
-        if (!isCancelled && err.name !== 'AbortError') setError(err.message)
+        if (!isCancelled) setError(err.message)
       })
       .finally(() => {
         if (!isCancelled) setIsLoading(false)
@@ -42,9 +50,8 @@ const Coin = () => {
 
     return () => {
       isCancelled = true
-      controller.abort()
     }
-  }, [coinId])
+  }, [coinId, currency.name])
 
   if (isLoading) {
     return (
@@ -58,9 +65,7 @@ const Coin = () => {
     return <div className="coin-error">{error}</div>
   }
 
-  if (!coinData) {
-    return null
-  }
+  if (!coinData) return null
 
   return (
     <div className="coin">

@@ -11,16 +11,22 @@ const CoinContextProvier = (props) => {
     })
 
     const fetchAllCoin = async () => {
+        const API_BASE = import.meta.env.VITE_CG_BASE_URL || 'https://api.coingecko.com/api/v3'
+
+        const headers = { accept: 'application/json' }
+        if (import.meta.env.VITE_CG_DEMO_API_KEY) {
+            headers['x-cg-demo-api-key'] = import.meta.env.VITE_CG_DEMO_API_KEY
+        }
 
         const options = {
             method: 'GET',
-            headers: { accept: 'application/json', 'x-cg-demo-api-key': 'CG-Hqwv3QX7Cx4ZE3bobtc6BsNN' }
-        };
+            headers
+        }
 
-        fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency.name}`, options)
+        fetch(`${API_BASE}/coins/markets?vs_currency=${currency.name}`, options)
             .then(res => res.json())
             .then(res => setAllCoin(res))
-            .catch(err => console.error(err));
+            .catch(err => console.error(err))
     }
 
         useEffect(() => {
